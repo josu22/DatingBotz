@@ -1,0 +1,17 @@
+venv
+.venv
+.idea
+.vscode/
+constants.py
+data/
+tinderbotz.egg-info
+dist
+build
+__pycache__/
+*.pyc
+*.pyo
+chrome_profile/
+chrome_profile_tinder/
+chrome_profile_bumble/
+.env
+.env.local
