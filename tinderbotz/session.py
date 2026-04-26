@@ -155,9 +155,6 @@ class Session:
         # store its userdata
         StorageHelper.store_match(match=match, directory='data/{}'.format(filename), filename=filename)
 
-    # Hash de la foto de perfil del usuario (no guardar nunca)
-    EXCLUDED_PHOTO_HASH = "1261c39aa079622041ff708816309bdd"
-
     def _save_liked_photos(self, geomatch, base_dir='data/liked', saved_name=None, saved_age=None):
         """Guarda la primera foto en data/liked como Nombre-Edad.jpg. Usar saved_name y saved_age capturados al dar like (misma chica)."""
         if not geomatch:
@@ -173,12 +170,10 @@ class Session:
         name = (saved_name if saved_name is not None else (geomatch.get_name() or "")).strip() or "perfil"
         age = saved_age if saved_age is not None else geomatch.get_age()
         filename_base = "{}-{}".format(name, age if age is not None else "0")
-        excluded = {self.EXCLUDED_PHOTO_HASH}
         for url in image_urls:
             try:
                 StorageHelper.store_image_as(
-                    url=url, directory=directory, exclude_hashes=excluded,
-                    custom_filename=filename_base
+                    url=url, directory=directory, custom_filename=filename_base
                 )
             except Exception:
                 pass
@@ -398,4 +393,3 @@ class Session:
         print("  Likes dados:    {}".format(likes))
         print("  Dislikes dados: {}".format(dislikes))
         print("  Superlikes:     {}".format(superlikes))
-

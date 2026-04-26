@@ -1,17 +1,52 @@
-venv
-.venv
-.idea
+# Local IDE / agent settings
+.idea/
 .vscode/
-constants.py
-data/
-tinderbotz.egg-info
-dist
-build
+.cursor/
+.claude/
+
+# Python environments and caches
+venv/
+.venv/
+env/
+.env/
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+tinderbotz.egg-info/
+
+# Local secrets and config
+.env
+.env.*
+!.env.example
+constants.py
+secrets.*
+*.pem
+*.key
+*.crt
+
+# Runtime data and logs
+data/
+logs/
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+screenshots/
+
+# Browser profiles and generated proxy extension
 chrome_profile/
 chrome_profile_tinder/
 chrome_profile_bumble/
-.env
-.env.local
+proxy_auth_plugin.zip
