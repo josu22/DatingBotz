@@ -279,6 +279,37 @@ class GeomatchHelper:
             pass
         return None
 
+    # Keywords de género para el fallback por texto exacto de Row
+    _MALE_GENDER_EXACT = frozenset({
+        "man", "men", "hombre", "male", "chico", "homme", "homem",
+        "masculino", "boy", "uomo", "männlich", "macho",
+    })
+    _FEMALE_GENDER_EXACT = frozenset({
+        "woman", "women", "mujer", "female", "chica", "femme", "mulher",
+        "donna", "femenino", "weiblich", "girl", "chicas",
+    })
+
+    def _get_gender_from_rows_exact_text(self, rows) -> str | None:
+        """
+        Fallback 1: recorre los Row ya leídos y compara el texto de div[2] exactamente
+        contra keywords de género. El texto de un Row de género es siempre una sola palabra
+        ("Man", "Woman", "Hombre"...), lo que lo diferencia de trabajo/estudios/ciudad.
+        Es seguro porque no lee la bio libre.
+        """
+        for row in rows:
+            try:
+                value_el = row.find_element(By.XPATH, ".//div[2]")
+                text = (value_el.text or "").strip().lower()
+                if not text or len(text) > 20:
+                    continue
+                if text in self._FEMALE_GENDER_EXACT:
+                    return text.capitalize()
+                if text in self._MALE_GENDER_EXACT:
+                    return text.capitalize()
+            except Exception:
+                continue
+        return None
+
     def get_row_data(self):
         """
         Lee los datos de las filas (Row) del perfil: trabajo, estudios, casa, GÉNERO, distancia.
@@ -322,7 +353,14 @@ class GeomatchHelper:
                     distance = 1 if value and "less" in value.lower() else None
                 rowdata['distance'] = distance
 
-        # Si no encontramos género por Row/SVG, intentar fallback por texto visible
+        # Fallback 1: leer texto exacto de los Row sin depender del SVG
+        # (cubre el caso en que Tinder cambia el path del icono de género)
+        if 'genders' not in rowdata or not rowdata['genders']:
+            row_gender = self._get_gender_from_rows_exact_text(rows)
+            if row_gender:
+                rowdata.setdefault('genders', []).append(row_gender)
+
+        # Fallback 2: texto visible del panel (solo confirma femenino — ver método)
         if 'genders' not in rowdata or not rowdata['genders']:
             fallback = self._get_gender_fallback_from_profile_text()
             if fallback:
