@@ -184,22 +184,20 @@ class Session:
             age = profile.get_age() if profile else None
             if not name:
                 name = "—"
+            label = "{}, {}".format(name, age) if age is not None else name
+            prefix = "[{:>4}] {:<30}".format(i + 1, label)
             if use_filters and profile:
                 rejected, reason = should_reject_profile(
                     profile, reject_keywords, reject_if_male,
                     reject_profile_emojis, reject_nonbinary_pronouns
                 )
                 if rejected:
-                    print("  Descartado Filtro: {}".format(reason))
                     self._adapter.dislike()
                     self.session_data["dislike"] += 1
                     delay = random.uniform(min_sleep, max_sleep) if randomize_sleep else sleep
                     time.sleep(delay)
                     elapsed = time.time() - t0
-                    if age is not None:
-                        print('Descartado (filtro) - "{}" {} - {:.1f}s'.format(name, age, elapsed))
-                    else:
-                        print('Descartado (filtro) - "{}" - {:.1f}s'.format(name, elapsed))
+                    print(u"{}✗  {}  [{:.1f}s]".format(prefix, reason, elapsed))
                     continue
             do_like = random.random() <= ratio_val
             if do_like:
@@ -209,41 +207,20 @@ class Session:
                     delay = random.uniform(min_sleep, max_sleep) if randomize_sleep else sleep
                     time.sleep(delay)
                     elapsed = time.time() - t0
-                    if age is not None:
-                        print('Like {}/{} - "{}" {} - {:.1f}s'.format(
-                            amount_liked, amount, name, age, elapsed
-                        ))
-                    else:
-                        print('Like {}/{} - "{}" - {:.1f}s'.format(
-                            amount_liked, amount, name, elapsed
-                        ))
+                    print(u"{}✓  Like {}/{}  [{:.1f}s]".format(prefix, amount_liked, amount, elapsed))
                 else:
                     self.session_data["dislike"] += 1
                     delay = random.uniform(min_sleep, max_sleep) if randomize_sleep else sleep
                     time.sleep(delay)
                     elapsed = time.time() - t0
-                    if age is not None:
-                        print('Pass {}/{} - "{}" {} - {:.1f}s'.format(
-                            amount_liked, amount, name, age, elapsed
-                        ))
-                    else:
-                        print('Pass {}/{} - "{}" - {:.1f}s'.format(
-                            amount_liked, amount, name, elapsed
-                        ))
+                    print(u"{}↷  (pass)  [{:.1f}s]".format(prefix, elapsed))
             else:
                 self._adapter.dislike()
                 self.session_data["dislike"] += 1
                 delay = random.uniform(min_sleep, max_sleep) if randomize_sleep else sleep
                 time.sleep(delay)
                 elapsed = time.time() - t0
-                if age is not None:
-                    print('Descartado (ratio) - "{}" {} - {:.1f}s'.format(
-                        name, age, elapsed
-                    ))
-                else:
-                    print('Descartado (ratio) - "{}" - {:.1f}s'.format(
-                        name, elapsed
-                    ))
+                print(u"{}↷  (ratio skip)  [{:.1f}s]".format(prefix, elapsed))
 
     def dislike(self, amount=1):
         if not self._adapter.is_logged_in():
