@@ -165,7 +165,7 @@ class Session:
             return
         if reject_keywords is None:
             reject_keywords = list(DEFAULT_REJECT_KEYWORDS_TRANS_GAY)
-        use_filters = bool(reject_keywords or reject_if_male or reject_profile_emojis)
+        use_filters = bool(reject_keywords or reject_if_male or reject_profile_emojis or reject_nonbinary_pronouns)
         ratio_val = float(str(ratio).split("%")[0]) / 100
         amount_liked = 0
         min_sleep = 4.0

@@ -244,14 +244,14 @@ def keyword_matches_in_lower_text(text_lower: str, keyword: str) -> bool:
         return False
     if " " in k:
         return k in text_lower
-    if len(k) <= 4:
+    if len(k) <= 5:
         return bool(re.search(r"(?<!\w)" + re.escape(k) + r"(?!\w)", text_lower))
     return k in text_lower
 
 
 def build_profile_filter_texts(profile: Any) -> Tuple[str, str]:
     """(texto_minúsculas, texto_original) para palabras clave, emojis y pronombres.
-    Incluye: nombre, bio, busco, trabajo, estudios, ciudad, instagram, himno, pasiones, lifestyle, basics."""
+    Incluye: nombre, bio, busco, trabajo, estudios, ciudad, instagram, himno, pasiones, lifestyle, basics, géneros."""
     parts: List[str] = []
     for getter in (
         "get_name", "get_bio", "get_looking_for",
@@ -277,6 +277,14 @@ def build_profile_filter_texts(profile: Any) -> Tuple[str, str]:
                 parts.extend(str(x) for x in v if x)
             elif v:
                 parts.append(str(v))
+    # Géneros declarados en la app (ej. "Trans Woman", "Non-binary", "Genderqueer")
+    gfn = getattr(profile, "get_genders", None)
+    if callable(gfn):
+        gv = gfn()
+        if isinstance(gv, list):
+            parts.extend(str(x) for x in gv if x)
+        elif gv:
+            parts.append(str(gv))
     raw = " ".join(parts)
     return raw.lower(), raw
 

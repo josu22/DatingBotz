@@ -200,7 +200,7 @@ class Session:
         ratio = float(ratio.split('%')[0]) / 100
         if reject_keywords is None:
             reject_keywords = list(DEFAULT_REJECT_KEYWORDS_TRANS_GAY)
-        use_filters = bool(reject_keywords or reject_if_male or reject_profile_emojis)
+        use_filters = bool(reject_keywords or reject_if_male or reject_profile_emojis or reject_nonbinary_pronouns)
 
         if self._is_logged_in():
             amount_liked = 0
