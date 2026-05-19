@@ -399,15 +399,16 @@ class GeomatchHelper:
 
     def _get_profile_body_inner_text(self):
         """Texto visible completo del panel del perfil (bio + filas + pasiones); robusto si cambian clases CSS."""
+        best = ""
         for xpath in (_PROFILE_BODY_XPATH, "//main"):
             try:
                 el = self.browser.find_element(By.XPATH, xpath)
                 t = (el.get_attribute("innerText") or el.text or "").strip()
-                if t and len(t) > 5:
-                    return t
+                if t and len(t) > len(best):
+                    best = t
             except Exception:
                 continue
-        return ""
+        return best
 
     def get_bio_and_passions(self):
         if not self._is_profile_opened():

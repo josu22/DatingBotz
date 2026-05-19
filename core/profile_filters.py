@@ -23,6 +23,9 @@ FEMALE_GENDER_KEYWORDS = frozenset({
 DEFAULT_REJECT_KEYWORDS_TRANS_GAY = [
     # Trans / crossdressing
     "transgender",
+    "transgenero",
+    "transgénero",
+    "transgênero",
     "transsexual",
     "transexual",
     "trans woman",
@@ -131,15 +134,25 @@ DEFAULT_REJECT_KEYWORDS_TRANS_GAY = [
     "stud",
     "lgbt",
     "lgbtq",
+    "lgbtqi",
+    "lgbtiq",
     "lgbtqia",
     "lgbt+",
     "lgbtq+",
+    "lgbtqi+",
+    "lgbtiq+",
     "lgbtqia+",
     "queer",
     "orgullo gay",
+    "orgullo lgbt",
+    "pride gay",
     "gay pride",
     "nblm",
     "nblw",
+    # Identidad de género declarada en texto
+    "identidad de genero",
+    "identidad de género",
+    "diversidad sexual",
     # Alemán
     "schwul",
     "lesbisch",
@@ -172,24 +185,24 @@ DEFAULT_REJECT_KEYWORDS_TRANS_GAY = [
 # 🌈 rainbow, ⚢ lesbian, ⚣ gay, ⚥ intersex/bisexual
 # ---------------------------------------------------------------------------
 REJECT_PROFILE_EMOJI_SEQUENCES = (
-    # Trans flag 🏳️‍⚧️ y variantes (con/sin selector FE0F)
+    # Trans flag 🏳️‍⚧️: U+1F3F3 [U+FE0F] U+200D U+26A7 [U+FE0F]
     "\U0001F3F3️‍⚧️",
-    "\U0001F3F3‍⚧️",
     "\U0001F3F3️‍⚧",
+    "\U0001F3F3‍⚧️",
     "\U0001F3F3‍⚧",
-    # Trans symbol ⚧️ y variante sin selector
+    # Trans symbol ⚧ U+26A7 (con y sin selector FE0F)
     "⚧️",
     "⚧",
-    # Pride flag 🏳️‍🌈 y variante
+    # Pride flag 🏳️‍🌈: U+1F3F3 [U+FE0F] U+200D U+1F308
     "\U0001F3F3️‍\U0001F308",
     "\U0001F3F3‍\U0001F308",
-    # Rainbow 🌈 (uso autónomo frecuente en perfiles LGBTQ+)
+    # Rainbow 🌈 U+1F308
     "\U0001F308",
-    # ⚢ símbolo lésbica  (U+26A2)
+    # ⚢ símbolo lésbica U+26A2
     "⚢",
-    # ⚣ símbolo gay       (U+26A3)
+    # ⚣ símbolo gay U+26A3
     "⚣",
-    # ⚥ intersex/bisexual (U+26A5)
+    # ⚥ intersex/bisexual U+26A5
     "⚥",
 )
 

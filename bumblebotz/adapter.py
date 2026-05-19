@@ -484,11 +484,30 @@ class BumbleAdapter:
                     urls.append(src)
         except Exception:
             pass
+        # Scroll the card to trigger lazy-render of bio sections before reading text
+        if container:
+            try:
+                self.browser.execute_script(
+                    "var e=arguments[0]; e.scrollTop=Math.min(e.scrollTop+600, e.scrollHeight);",
+                    container,
+                )
+                time.sleep(0.25)
+            except Exception:
+                pass
         bio = None
         if container:
             try:
                 raw = (container.get_attribute("innerText") or container.text or "").strip()
                 if raw and len(raw) > 3:
+                    bio = raw
+            except Exception:
+                pass
+        # Fallback: read from //main if container bio is absent or suspiciously short
+        if not bio or len(bio) < 40:
+            try:
+                main_el = self.browser.find_element(By.TAG_NAME, "main")
+                raw = (main_el.get_attribute("innerText") or main_el.text or "").strip()
+                if raw and len(raw) > len(bio or ""):
                     bio = raw
             except Exception:
                 pass

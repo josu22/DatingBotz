@@ -96,14 +96,22 @@ class TestKeywordMatching:
     def test_trans_matches_with_punctuation(self):
         assert keyword_matches_in_lower_text("i am trans, 25, madrid", "trans")
 
-    # ---- "transgender": substring (> 5 chars) ----
+    # ---- "transgender" / "transgenero": substring (> 5 chars) ----
 
     def test_transgender_in_bio(self):
         assert keyword_matches_in_lower_text("i am transgender", "transgender")
 
     def test_transgender_in_compound(self):
-        # "transgenders" también se captura (substring)
         assert keyword_matches_in_lower_text("all transgenders welcome", "transgender")
+
+    def test_transgenero_spanish_uppercase(self):
+        assert keyword_matches_in_lower_text("transgenero", "transgenero")
+
+    def test_transgenero_spanish_accent(self):
+        assert keyword_matches_in_lower_text("soy transgénero", "transgénero")
+
+    def test_transgenero_uppercase_bio(self):
+        assert keyword_matches_in_lower_text("TRANSGENERO".lower(), "transgenero")
 
     # ---- "butch": word-boundary (5 chars) ----
 
