@@ -53,6 +53,20 @@ class BumbleAdapter:
 
     HOME_URL = APP_DISCOVER_URL
 
+    # Keywords de género para detección exacta (tags/badges cortos)
+    _MALE_GENDER_EXACT = frozenset({
+        "man", "men", "hombre", "male", "chico", "homme", "homem",
+        "masculino", "boy", "uomo", "männlich", "macho",
+    })
+    _FEMALE_GENDER_EXACT = frozenset({
+        "woman", "women", "mujer", "female", "chica", "femme", "mulher",
+        "donna", "femenino", "weiblich", "girl", "chicas",
+    })
+    _FEMALE_GENDER_SUBSTR = (
+        "woman", "women", "mujer", "female", "chica", "femme",
+        "mulher", "donna", "femenino", "girl",
+    )
+
     def __init__(self, browser):
         self.browser = browser
 
@@ -291,6 +305,66 @@ class BumbleAdapter:
                 continue
         return None
 
+    def _detect_gender(self, container) -> Optional[str]:
+        """
+        Detecta el género del perfil actual. Tres capas (misma filosofía que Tinder):
+
+        1. Texto exacto de elementos cortos: los tags de género en Bumble son
+           píldoras/badges de una palabra ("Woman", "Man", "Mujer"...).
+        2. Selectores semánticos: class/aria-label/data-qa con 'gender'.
+        3. Scan de bio solo para femenino: evita el falso positivo de una mujer
+           que escriba "busco un hombre..." en su bio.
+        """
+        scope = container if container else self.browser
+
+        # Capa 1: badges / tags cortos con texto exacto de género
+        try:
+            for el in scope.find_elements(By.XPATH, ".//*[self::span or self::div or self::p]"):
+                if not el.is_displayed():
+                    continue
+                text = (el.text or "").strip().lower()
+                if not text or len(text) > 20:
+                    continue
+                if text in self._FEMALE_GENDER_EXACT:
+                    return text.capitalize()
+                if text in self._MALE_GENDER_EXACT:
+                    return text.capitalize()
+        except Exception:
+            pass
+
+        # Capa 2: selectores semánticos que Bumble suele usar
+        for xpath in (
+            "//*[contains(@class,'gender')]",
+            "//*[contains(@aria-label,'gender') or contains(@aria-label,'Gender')]",
+            "//*[contains(@data-qa,'gender')]",
+            "//*[contains(@class,'profile-info')]//span",
+            "//*[contains(@class,'about')]//span",
+        ):
+            try:
+                for el in self.browser.find_elements(By.XPATH, xpath):
+                    if not el.is_displayed():
+                        continue
+                    text = (el.text or "").strip().lower()
+                    if not text or len(text) > 20:
+                        continue
+                    if text in self._FEMALE_GENDER_EXACT:
+                        return text.capitalize()
+                    if text in self._MALE_GENDER_EXACT:
+                        return text.capitalize()
+            except Exception:
+                continue
+
+        # Capa 3: bio solo femenino (no infiere masculino del texto libre)
+        try:
+            text = (scope.get_attribute("innerText") or scope.text or "").lower()
+            for word in self._FEMALE_GENDER_SUBSTR:
+                if word in text:
+                    return word.capitalize()
+        except Exception:
+            pass
+
+        return None
+
     def get_current_profile(
         self,
         quickload: bool = True,
@@ -418,7 +492,11 @@ class BumbleAdapter:
                     bio = raw
             except Exception:
                 pass
-        return BumbleProfile(name=name, age=age, bio=bio, image_urls=urls or None)
+        profile = BumbleProfile(name=name, age=age, bio=bio, image_urls=urls or None)
+        detected_gender = self._detect_gender(container)
+        if detected_gender:
+            profile.genders = [detected_gender]
+        return profile
 
     def close_profile(self) -> None:
         try:
