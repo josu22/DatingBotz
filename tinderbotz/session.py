@@ -1,6 +1,7 @@
 # Core: browser session and storage
 from core import BrowserSession, StorageHelper
 from core.profile_filters import DEFAULT_REJECT_KEYWORDS_TRANS_GAY, should_reject_profile
+from core.photo_preference_model import PhotoPreferenceModel
 
 import os
 import time
@@ -181,6 +182,7 @@ class Session:
     def like(self, amount=1, ratio='100%', sleep=2, randomize_sleep=True,
              reject_keywords=None, reject_if_male=True, reject_profile_emojis=True,
              reject_nonbinary_pronouns=True,
+             photo_model_threshold=None,
              save_liked_photos=False, liked_photos_dir='data/liked',
              browse_photos=3, browse_photos_delay=0.10, browse_before_like=1):
         """
@@ -195,12 +197,26 @@ class Session:
         - browse_photos_delay: segundos entre cada foto al pasarlas (default 0.10).
         - browse_before_like: si > 0, abre perfil, pasa N fotos y cierra antes de like/dislike (default 1, siempre activo).
         - sleep: pausa tras cada like (default 2 s); con randomize_sleep se aplica un factor aleatorio.
+        - photo_model_threshold: float 0-1 o None. Si se especifica (ej. 0.4), usa el modelo
+          entrenado con collect_training_data/train_preference_model como filtro adicional.
+          Un perfil cuya foto principal obtenga un score inferior al umbral será descartado.
         """
         initial_sleep = sleep
         ratio = float(ratio.split('%')[0]) / 100
         if reject_keywords is None:
             reject_keywords = list(DEFAULT_REJECT_KEYWORDS_TRANS_GAY)
         use_filters = bool(reject_keywords or reject_if_male or reject_profile_emojis or reject_nonbinary_pronouns)
+
+        # Cargar modelo de preferencias si se solicita
+        _photo_model = None
+        if photo_model_threshold is not None:
+            _photo_model = PhotoPreferenceModel()
+            if _photo_model.load():
+                use_filters = True
+                print("  Modelo de preferencias cargado (umbral={:.2f})".format(photo_model_threshold))
+            else:
+                print("  AVISO: no se encontró modelo entrenado. Ejecuta train_preference_model() primero.")
+                _photo_model = None
 
         if self._is_logged_in():
             amount_liked = 0
@@ -241,10 +257,23 @@ class Session:
                             do_like = False
                             print("  Descartado Filtro: {}".format(reason))
                         else:
-                            if saved_age is not None:
-                                print("  Filtro OK | {} | {}".format(saved_name, saved_age))
-                            else:
-                                print("  Filtro OK | {}".format(saved_name))
+                            # Filtro de modelo de preferencias (foto)
+                            if _photo_model is not None and not rejected:
+                                urls = geomatch.get_image_urls() or []
+                                if urls:
+                                    liked_by_model, score = _photo_model.predict_from_url(
+                                        urls[0], threshold=photo_model_threshold
+                                    )
+                                    if not liked_by_model:
+                                        rejected = True
+                                        reason = "Modelo foto (score={:.2f})".format(score)
+                                        do_like = False
+                                        print("  Descartado Modelo: score={:.2f}".format(score))
+                            if not rejected:
+                                if saved_age is not None:
+                                    print("  Filtro OK | {} | {}".format(saved_name, saved_age))
+                                else:
+                                    print("  Filtro OK | {}".format(saved_name))
                     except Exception as e:
                         do_like = False
                         print("  Error leyendo perfil: {}".format(str(e)[:60]))
@@ -288,6 +317,140 @@ class Session:
                 time.sleep(sleep)
 
             self._print_liked_stats()
+
+    def collect_training_data(self, n: int = 100, save_dir: str = 'data/training'):
+        """
+        Modo interactivo de recopilación de datos para el modelo de preferencias.
+
+        Muestra cada perfil en el terminal y espera que el usuario pulse:
+          [y] → like (foto guardada en save_dir/liked/)
+          [n] → dislike (foto guardada en save_dir/disliked/)
+          [q] → salir
+
+        Una vez recogidos suficientes ejemplos, llama a train_preference_model()
+        y usa session.like(photo_model_threshold=0.4) para automatizar.
+        """
+        if not self._is_logged_in():
+            return
+        import requests as _requests
+        from pathlib import Path as _Path
+
+        liked_dir = _Path(save_dir) / 'liked'
+        disliked_dir = _Path(save_dir) / 'disliked'
+        liked_dir.mkdir(parents=True, exist_ok=True)
+        disliked_dir.mkdir(parents=True, exist_ok=True)
+
+        collected = 0
+        skipped = 0
+
+        print("\n=== Recopilación de datos de entrenamiento ({} perfiles) ===".format(n))
+        print("Controles: [y] Like  [n] Dislike  [q] Salir\n")
+
+        while collected < n:
+            self._handle_potential_popups()
+            try:
+                geomatch = self.get_geomatch(quickload=True, browse_photos=0)
+                if geomatch is None:
+                    skipped += 1
+                    if skipped > 20:
+                        print("Demasiados perfiles sin datos, deteniéndose.")
+                        break
+                    self._adapter.dislike()
+                    time.sleep(1.0)
+                    continue
+
+                name = (geomatch.get_name() or "—").strip()
+                age = geomatch.get_age()
+                bio = (geomatch.get_bio() or "")
+                image_urls = geomatch.get_image_urls() or []
+
+                print("[{}/{}] {}, {}".format(collected + 1, n, name, age))
+                if bio:
+                    bio_preview = bio.replace("\n", " ")[:100]
+                    print("  Bio: {}{}".format(bio_preview, "..." if len(bio) > 100 else ""))
+
+                # Descargar primera foto
+                img_bytes = None
+                if image_urls:
+                    try:
+                        resp = _requests.get(image_urls[0], timeout=8)
+                        if resp.status_code == 200:
+                            img_bytes = resp.content
+                    except Exception:
+                        pass
+
+                while True:
+                    choice = input("  ¿Like? [y/n/q]: ").strip().lower()
+                    if choice in ('y', 'n', 'q'):
+                        break
+
+                if choice == 'q':
+                    print("Saliendo de la recopilación.")
+                    break
+
+                dest_dir = liked_dir if choice == 'y' else disliked_dir
+                if img_bytes:
+                    filename = "{}_{}_{}{}".format(
+                        name.replace(" ", "_"), age or 0, collected + 1, '.jpg'
+                    )
+                    (dest_dir / filename).write_bytes(img_bytes)
+
+                self._adapter.close_profile()
+                if choice == 'y':
+                    self._adapter.like()
+                    self.session_data['like'] += 1
+                else:
+                    self._adapter.dislike()
+                    self.session_data['dislike'] += 1
+
+                collected += 1
+                skipped = 0
+                time.sleep(random.uniform(1.5, 3.0))
+
+            except Exception as e:
+                print("  Error: {}, saltando...".format(str(e)[:60]))
+                skipped += 1
+                try:
+                    self._adapter.dislike()
+                except Exception:
+                    pass
+                time.sleep(1.0)
+
+        n_liked = len(list(liked_dir.glob('*.jpg')))
+        n_disliked = len(list(disliked_dir.glob('*.jpg')))
+        print("\n=== Recopilación completada: {} perfiles ===".format(collected))
+        print("  Liked:    {} fotos → {}".format(n_liked, liked_dir))
+        print("  Disliked: {} fotos → {}".format(n_disliked, disliked_dir))
+        print("  Siguiente paso: session.train_preference_model()")
+
+    def train_preference_model(self, training_dir: str = 'data/training', model_path: str = None):
+        """
+        Entrena el modelo de preferencias con los datos recogidos por collect_training_data().
+
+        Requiere: scikit-learn (pip install scikit-learn)
+                  torchvision (pip install torch torchvision)  ← recomendado
+                  o deepface (ya en requirements.txt)           ← fallback
+
+        Devuelve el diccionario de métricas o None si hay error.
+        """
+        kwargs = {'model_path': model_path} if model_path else {}
+        model = PhotoPreferenceModel(**kwargs)
+
+        print("\n=== Entrenando modelo de preferencias ===")
+        print("  Datos: {}".format(training_dir))
+
+        try:
+            result = model.train(training_dir)
+            print("  Liked:       {} fotos".format(result['n_liked']))
+            print("  Disliked:    {} fotos".format(result['n_disliked']))
+            print("  Total:       {} fotos".format(result['n_total']))
+            print("  Accuracy CV: {:.1%}".format(result['accuracy']))
+            print("  Modelo:      {}".format(model.model_path))
+            print("\n  Uso: session.like(amount=500, photo_model_threshold=0.4)")
+            return result
+        except Exception as e:
+            print("  Error entrenando: {}".format(e))
+            return None
 
     def dislike(self, amount=1):
         if self._is_logged_in():

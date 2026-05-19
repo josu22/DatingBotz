@@ -294,7 +294,7 @@ def is_male_gender_string(gender_str: Optional[str]) -> bool:
         return False
     g = (gender_str or "").lower().strip()
     for kw in FEMALE_GENDER_KEYWORDS:
-        if kw in g or g in kw:
+        if kw in g:
             return False
     words = g.split()
     for w in words:
