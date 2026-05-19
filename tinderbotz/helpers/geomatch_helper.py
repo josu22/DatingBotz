@@ -252,30 +252,27 @@ class GeomatchHelper:
         return " ".join(d.split())
 
     def _get_gender_fallback_from_profile_text(self):
-        """Fallback: busca en el texto visible del perfil palabras de género. Prioriza femenino (woman/mujer/chica)."""
+        """
+        Fallback de género: solo confirma FEMENINO a partir del texto visible.
+        NO infiere masculino desde el texto libre porque la bio puede mencionar
+        a otra persona ('busco un hombre', 'me gustan los chicos') y causaría
+        falsos positivos rechazando perfiles de mujeres.
+        """
+        _female_words = ("woman", "women", "mujer", "female", "chica", "femme",
+                         "mulher", "donna", "femenino", "chicas")
         try:
-            # Panel principal del perfil
             profile_xpath = f'{content}/div/div[1]/div/main/div[1]/div/div/div[1]/div[1]/div/div[2]'
             el = self.browser.find_element(By.XPATH, profile_xpath)
             text = (el.text or "").lower()
-            # Primero femenino para no confundir "man" dentro de "woman"
-            for word in ("woman", "women", "mujer", "female", "chica", "femme", "mulher", "donna", "femenino"):
-                if word in text:
-                    return word.capitalize()
-            # Luego masculino
-            for word in ("hombre", "male", "chico", "homme", "homem", "masculino", "man", "men"):
+            for word in _female_words:
                 if word in text:
                     return word.capitalize()
         except Exception:
             pass
         try:
-            # Fallback: todo el main
             el = self.browser.find_element(By.TAG_NAME, "main")
             text = (el.text or "").lower()
-            for word in ("woman", "women", "mujer", "female", "chica", "femme"):
-                if word in text:
-                    return word.capitalize()
-            for word in ("hombre", "male", "chico", "homme", "man", "men"):
+            for word in _female_words:
                 if word in text:
                     return word.capitalize()
         except Exception:

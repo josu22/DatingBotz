@@ -45,8 +45,6 @@ DEFAULT_REJECT_KEYWORDS_TRANS_GAY = [
     "xdress",
     "xdresser",
     "xdressing",
-    "cd",
-    "c/d",
     "travesti",
     "travestis",
     "travestismo",
@@ -98,7 +96,6 @@ DEFAULT_REJECT_KEYWORDS_TRANS_GAY = [
     "two spirit",
     "two-spirit",
     "twospirit",
-    "questioning",
     "intersex",
     # Médico / transición
     "hormone replacement",
@@ -115,12 +112,14 @@ DEFAULT_REJECT_KEYWORDS_TRANS_GAY = [
     "drag king",
     "drag performer",
     "drag artist",
-    # Gay / lésbica / LGBTQ+
+    # Gay / lésbica / bisexual / LGBTQ+
     "homosexual",
     "homosexuales",
     "lesbian",
     "lesbiana",
     "lesbianas",
+    "bisexual",
+    "bisexuales",
     "pansexual",
     "pan sexual",
     "asexual",
@@ -322,16 +321,11 @@ def should_reject_profile(
     """
     Devuelve (rechazar: bool, motivo: str).
 
-    Escanea: nombre, bio, busco, trabajo, estudios, ciudad, instagram,
-             himno, pasiones, lifestyle, basics.
+    Escanea: nombre, bio (innerText completo del panel), busco, trabajo,
+             estudios, ciudad, instagram, himno, pasiones, lifestyle,
+             basics, géneros declarados.
 
-    Parámetros
-    ----------
-    reject_keywords          : lista de términos; None → no se aplica aquí.
-    reject_if_male           : rechazar si el género declarado es masculino.
-    reject_profile_emojis    : detectar 🏳️‍⚧️ ⚧️ 🏳️‍🌈 🌈 ⚢ ⚣ ⚥.
-    reject_nonbinary_pronouns: detectar they/them, ze/zir, xe/xem, fae/faer,
-                               pronombres mixtos he+she.
+    Orden de evaluación: emojis → pronombres → keywords → género (is_male).
     """
     text_lower, text_raw = build_profile_filter_texts(profile)
 

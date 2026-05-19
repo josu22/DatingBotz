@@ -244,73 +244,75 @@ class Session:
                     self._adapter.open_profile_and_browse_photos(browse_before_like, browse_photos_delay)
                     self._adapter.close_profile()
 
+                rejected = False
+                reason = ""
+
                 if use_filters:
                     try:
                         geomatch = self.get_geomatch(quickload=True, browse_photos=browse_photos, browse_photos_delay=browse_photos_delay)
+                        saved_name = (geomatch.get_name() or "").strip() or "—"
+                        saved_age = geomatch.get_age()
                         rejected, reason = should_reject_profile(
                             geomatch, reject_keywords, reject_if_male,
                             reject_profile_emojis, reject_nonbinary_pronouns
                         )
-                        saved_name = (geomatch.get_name() or "").strip() or "—"
-                        saved_age = geomatch.get_age()
+                        # Filtro de modelo de preferencias (foto)
+                        if not rejected and _photo_model is not None:
+                            urls = geomatch.get_image_urls() or []
+                            if urls:
+                                liked_by_model, score = _photo_model.predict_from_url(
+                                    urls[0], threshold=photo_model_threshold
+                                )
+                                if not liked_by_model:
+                                    rejected = True
+                                    reason = "Modelo foto (score={:.2f})".format(score)
                         if rejected:
                             do_like = False
-                            print("  Descartado Filtro: {}".format(reason))
-                        else:
-                            # Filtro de modelo de preferencias (foto)
-                            if _photo_model is not None and not rejected:
-                                urls = geomatch.get_image_urls() or []
-                                if urls:
-                                    liked_by_model, score = _photo_model.predict_from_url(
-                                        urls[0], threshold=photo_model_threshold
-                                    )
-                                    if not liked_by_model:
-                                        rejected = True
-                                        reason = "Modelo foto (score={:.2f})".format(score)
-                                        do_like = False
-                                        print("  Descartado Modelo: score={:.2f}".format(score))
-                            if not rejected:
-                                if saved_age is not None:
-                                    print("  Filtro OK | {} | {}".format(saved_name, saved_age))
-                                else:
-                                    print("  Filtro OK | {}".format(saved_name))
                     except Exception as e:
                         do_like = False
-                        print("  Error leyendo perfil: {}".format(str(e)[:60]))
+                        rejected = True
+                        reason = "Error: {}".format(str(e)[:55])
                         saved_name = saved_age = None
                         geomatch = None
 
                 if use_filters:
                     self._adapter.close_profile()
+
+                liked_ok = False
                 if do_like and random.random() <= ratio:
                     if self._adapter.like():
+                        liked_ok = True
                         amount_liked += 1
                         self.session_data['like'] += 1
                         consecutive_like_misses = 0
-                        elapsed = time.time() - t0
-                        name_str = saved_name if use_filters else ((geomatch.get_name() if geomatch else None) or "—")
-                        name_str = str(name_str).strip() if name_str else "—"
-                        age_val = saved_age if use_filters else (geomatch.get_age() if geomatch else None)
-                        age_str = str(age_val).strip() if age_val is not None and str(age_val).strip() else ""
-                        if age_str:
-                            print('Like {}/{} - "{}" {} - {:.1f}s'.format(amount_liked, amount, name_str, age_str, elapsed))
-                        else:
-                            print('Like {}/{} - "{}" - {:.1f}s'.format(amount_liked, amount, name_str, elapsed))
                         if save_liked_photos and geomatch:
                             self._save_liked_photos(geomatch, base_dir=liked_photos_dir, saved_name=saved_name, saved_age=saved_age)
                     else:
                         self.session_data['dislike'] += 1
                         consecutive_like_misses += 1
                 else:
-                    if not do_like or random.random() > ratio:
+                    if rejected or random.random() > ratio:
                         self._adapter.dislike()
                         self.session_data['dislike'] += 1
                     consecutive_like_misses = 0
 
+                # ── Línea de consola: una por perfil ──────────────────────
+                elapsed = time.time() - t0
+                name_str = str(saved_name).strip() if saved_name else "—"
+                age_str = str(saved_age) if saved_age is not None else ""
+                label = "{}, {}".format(name_str, age_str) if age_str else name_str
+                prefix = "[{:>4}] {:<30}".format(iteration, label)
+                if rejected:
+                    print("{}✗  {}".format(prefix, reason))
+                elif liked_ok:
+                    print("{}✓  Like {}/{}  [{:.1f}s]".format(prefix, amount_liked, amount, elapsed))
+                else:
+                    print("{}↷  (ratio skip)  [{:.1f}s]".format(prefix, elapsed))
+
                 if consecutive_like_misses >= 15:
                     print(
-                        "Bucle de likes detenido: demasiados likes fallidos seguidos ({}). "
-                        "Likes conseguidos: {}/{}.".format(consecutive_like_misses, amount_liked, amount)
+                        "Bucle detenido: {} likes fallidos seguidos. "
+                        "Conseguidos: {}/{}.".format(consecutive_like_misses, amount_liked, amount)
                     )
                     break
 
