@@ -291,21 +291,21 @@ class GeomatchHelper:
 
     def _get_gender_from_rows_exact_text(self, rows) -> str | None:
         """
-        Fallback 1: recorre los Row ya leídos y compara el texto de div[2] exactamente
-        contra keywords de género. El texto de un Row de género es siempre una sola palabra
-        ("Man", "Woman", "Hombre"...), lo que lo diferencia de trabajo/estudios/ciudad.
-        Es seguro porque no lee la bio libre.
+        Fallback 1: recorre los Row ya leídos y comprueba si ALGUNA palabra del texto de div[2]
+        coincide con un keyword de género. Soporta géneros compuestos como "Mujer trans" o
+        "Hombre trans". Devuelve el texto COMPLETO (no solo la keyword) para que los filtros
+        de palabras clave downstream puedan detectar "trans", "non-binary", etc.
         """
+        all_gender_kw = self._FEMALE_GENDER_EXACT | self._MALE_GENDER_EXACT
         for row in rows:
             try:
                 value_el = row.find_element(By.XPATH, ".//div[2]")
-                text = (value_el.text or "").strip().lower()
-                if not text or len(text) > 20:
+                text = (value_el.text or "").strip()
+                if not text or len(text) > 40:
                     continue
-                if text in self._FEMALE_GENDER_EXACT:
-                    return text.capitalize()
-                if text in self._MALE_GENDER_EXACT:
-                    return text.capitalize()
+                words = set(text.lower().split())
+                if words & all_gender_kw:
+                    return text  # Texto completo: "Mujer trans", "Hombre", etc.
             except Exception:
                 continue
         return None
@@ -371,15 +371,16 @@ class GeomatchHelper:
         return rowdata
 
     def _scroll_profile_panel_for_bio(self):
-        """Baja el scroll del perfil para que la descripción y secciones carguen (Tinder SPA)."""
+        """Baja el scroll del perfil para que la descripción y secciones carguen (Tinder SPA).
+        IMPORTANTE: no usar ARROW_DOWN — cierra la vista de perfil antes de leer los esenciales."""
         try:
             panel = self.browser.find_element(By.XPATH, _PROFILE_BODY_XPATH)
             self.browser.execute_script(
                 """
                 var el = arguments[0];
-                for (var i = 0; i < 8 && el; i++) {
+                for (var i = 0; i < 10 && el; i++) {
                     if (el.scrollHeight > el.clientHeight + 30) {
-                        el.scrollTop = Math.min(el.scrollTop + 480, el.scrollHeight);
+                        el.scrollTop = el.scrollHeight;
                         break;
                     }
                     el = el.parentElement;
@@ -389,13 +390,7 @@ class GeomatchHelper:
             )
         except Exception:
             pass
-        for _ in range(10):
-            try:
-                ActionChains(self.browser).send_keys(Keys.ARROW_DOWN).perform()
-            except Exception:
-                break
-            time.sleep(0.07)
-        time.sleep(0.2)
+        time.sleep(0.3)
 
     def _get_profile_body_inner_text(self):
         """Texto visible completo del panel del perfil (bio + filas + pasiones); robusto si cambian clases CSS."""

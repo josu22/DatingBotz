@@ -317,18 +317,20 @@ class BumbleAdapter:
         """
         scope = container if container else self.browser
 
-        # Capa 1: badges / tags cortos con texto exacto de género
+        _all_gender_kw = self._FEMALE_GENDER_EXACT | self._MALE_GENDER_EXACT
+
+        # Capa 1: badges / tags cortos. Soporta géneros compuestos ("Mujer trans", "Trans Woman").
+        # Se devuelve el texto COMPLETO para que los filtros downstream detecten "trans" etc.
         try:
             for el in scope.find_elements(By.XPATH, ".//*[self::span or self::div or self::p]"):
                 if not el.is_displayed():
                     continue
-                text = (el.text or "").strip().lower()
-                if not text or len(text) > 20:
+                text = (el.text or "").strip()
+                if not text or len(text) > 40:
                     continue
-                if text in self._FEMALE_GENDER_EXACT:
-                    return text.capitalize()
-                if text in self._MALE_GENDER_EXACT:
-                    return text.capitalize()
+                words = set(text.lower().split())
+                if words & _all_gender_kw:
+                    return text
         except Exception:
             pass
 
@@ -344,13 +346,12 @@ class BumbleAdapter:
                 for el in self.browser.find_elements(By.XPATH, xpath):
                     if not el.is_displayed():
                         continue
-                    text = (el.text or "").strip().lower()
-                    if not text or len(text) > 20:
+                    text = (el.text or "").strip()
+                    if not text or len(text) > 40:
                         continue
-                    if text in self._FEMALE_GENDER_EXACT:
-                        return text.capitalize()
-                    if text in self._MALE_GENDER_EXACT:
-                        return text.capitalize()
+                    words = set(text.lower().split())
+                    if words & _all_gender_kw:
+                        return text
             except Exception:
                 continue
 

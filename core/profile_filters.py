@@ -207,6 +207,17 @@ REJECT_PROFILE_EMOJI_SEQUENCES = (
 )
 
 # ---------------------------------------------------------------------------
+# Términos trans/no-binarios que pueden aparecer dentro del campo de género
+# declarado en la app (ej. "Mujer trans", "Hombre trans", "No-binario").
+# Se comprueba como palabras individuales del valor del campo género.
+# ---------------------------------------------------------------------------
+_TRANS_NB_IN_GENDER = frozenset({
+    "trans", "transgender", "transgenero", "transgénero", "transexual", "transsexual",
+    "transmasc", "transfem", "nonbinary", "non-binary", "enby",
+    "genderqueer", "genderfluid", "agender", "bigender", "intersex", "travesti",
+})
+
+# ---------------------------------------------------------------------------
 # Detección de pronombres no-binarios / trans
 # ---------------------------------------------------------------------------
 # they/them, ze/zir, xe/xem, fae/faer, ey/em, ve/ver, ne/nem, per/pers
@@ -347,6 +358,20 @@ def should_reject_profile(
 
     if reject_nonbinary_pronouns and text_contains_nonbinary_pronouns(text_raw):
         return True, "Pronombres no-binarios / trans"
+
+    # Comprobación directa del campo género para valores compuestos como
+    # "Mujer trans", "Hombre trans", "Non-binary", etc. Se ejecuta siempre,
+    # independientemente de reject_keywords, para no depender de que el texto
+    # de la bio recoja correctamente el campo de esenciales.
+    _gfn = getattr(profile, "get_genders", None)
+    if callable(_gfn):
+        _gv = _gfn()
+        if _gv:
+            _glist = _gv if isinstance(_gv, list) else [_gv]
+            for _g in _glist:
+                _words = set(str(_g).lower().split())
+                if _words & _TRANS_NB_IN_GENDER:
+                    return True, "Género trans/no-binario ({})".format(str(_g).strip())
 
     if reject_keywords:
         for kw in reject_keywords:
